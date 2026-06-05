@@ -4,6 +4,10 @@ BQ Clean 是一个基于 Go 和 Wails 的 Windows 桌面缓存清理工具。它
 
 第一版采用保守安全策略：只扫描明确允许的缓存目录，不做全盘递归清理；清理前会再次校验路径，避免误删用户文件或系统关键文件。
 
+## 界面概念图
+
+![BQ Clean 桌面界面概念图](docs/images/cleanapp-ui-mockup.png)
+
 ## 功能特性
 
 - 基于 Wails + WebView2 的 Windows 桌面 GUI。
@@ -177,4 +181,3 @@ go test ./...
 - 补充常见 Windows 文件错误的中文提示。
 - 支持导出扫描报告。
 - 增加安装包和签名发布流程。
-
