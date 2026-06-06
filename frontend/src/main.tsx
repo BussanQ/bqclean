@@ -119,6 +119,7 @@ function App() {
   const [busy, setBusy] = useState<'scan' | 'clean' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [lastScanAt, setLastScanAt] = useState<Date | null>(null);
 
   const grouped = useMemo(() => {
@@ -143,6 +144,7 @@ function App() {
   const canUseBackend = Boolean(api);
   const scanComplete = Boolean(scanResult && !busy);
   const issueCount = scanResult?.failures.length ?? 0;
+  const aboutTime = useMemo(() => new Date().toLocaleString('zh-CN'), [aboutOpen]);
 
   async function startScan() {
     if (!api) {
@@ -292,7 +294,7 @@ function App() {
             <Settings size={18} />
             <span>Settings</span>
           </button>
-          <button className="plainNav" type="button" title="About">
+          <button className="plainNav" onClick={() => setAboutOpen(true)} type="button" title="About">
             <Info size={18} />
             <span>About</span>
           </button>
@@ -503,6 +505,29 @@ function App() {
               </button>
               <button className="button danger" onClick={confirmClean} type="button">
                 确认清理
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {aboutOpen && (
+        <div className="modalBackdrop" role="presentation">
+          <section className="confirmDialog aboutDialog" role="dialog" aria-modal="true" aria-label="About">
+            <button className="closeButton" onClick={() => setAboutOpen(false)} type="button" title="关闭">
+              <X size={18} />
+            </button>
+            <div className="confirmIcon aboutIcon">
+              <Info size={28} />
+            </div>
+            <h2>About</h2>
+            <div className="aboutDetails">
+              <span>{aboutTime}</span>
+              <strong>By BussanQ</strong>
+            </div>
+            <div className="dialogActions">
+              <button className="button primary" onClick={() => setAboutOpen(false)} type="button">
+                OK
               </button>
             </div>
           </section>
