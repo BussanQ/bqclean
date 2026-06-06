@@ -55,6 +55,17 @@ func Default(categories []model.CleanCategory) RuleSet {
 		roots = append(roots, browserRoots(filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "User Data"), model.CategoryEdgeCache)...)
 	}
 
+	if selected[model.CategoryVSCodeCache] {
+		if p := os.Getenv("APPDATA"); p != "" {
+			roots = append(roots, Root{
+				Path:            filepath.Join(p, "Code", "CachedExtensionVSIXs"),
+				Category:        model.CategoryVSCodeCache,
+				DefaultSelected: true,
+				Risk:            model.RiskLow,
+			})
+		}
+	}
+
 	return RuleSet{Roots: normalizeExistingRoots(roots)}
 }
 
@@ -64,6 +75,7 @@ func categorySet(categories []model.CleanCategory) map[model.CleanCategory]bool 
 		model.CategorySystemTemp,
 		model.CategoryChromeCache,
 		model.CategoryEdgeCache,
+		model.CategoryVSCodeCache,
 		model.CategoryRecycleBin,
 	}
 	set := make(map[model.CleanCategory]bool, len(all))

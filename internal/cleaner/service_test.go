@@ -44,6 +44,9 @@ func TestServiceScansAndCleansUserTemp(t *testing.T) {
 	if clean.DeletedCount != 1 || clean.DeletedBytes != 5 {
 		t.Fatalf("unexpected clean result: %#v", clean)
 	}
+	if clean.Failures == nil {
+		t.Fatal("expected clean failures to be an empty slice, got nil")
+	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatalf("expected target to be deleted, stat err: %v", err)
 	}

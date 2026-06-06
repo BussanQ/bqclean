@@ -45,3 +45,21 @@ func TestDefaultChromeRulesOnlyIncludeCacheRoots(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultVSCodeRulesIncludeCachedExtensionVSIXs(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("APPDATA", temp)
+
+	expected := filepath.Join(temp, "Code", "CachedExtensionVSIXs")
+	ruleSet := Default([]model.CleanCategory{model.CategoryVSCodeCache})
+
+	if len(ruleSet.Roots) != 1 {
+		t.Fatalf("expected 1 vscode cache root, got %d: %#v", len(ruleSet.Roots), ruleSet.Roots)
+	}
+	if filepath.Clean(ruleSet.Roots[0].Path) != filepath.Clean(expected) {
+		t.Fatalf("expected vscode cache root %q, got %q", expected, ruleSet.Roots[0].Path)
+	}
+	if ruleSet.Roots[0].Category != model.CategoryVSCodeCache {
+		t.Fatalf("expected category %q, got %q", model.CategoryVSCodeCache, ruleSet.Roots[0].Category)
+	}
+}

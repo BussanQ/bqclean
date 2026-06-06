@@ -18,6 +18,7 @@ const (
 	CategorySystemTemp  = model.CategorySystemTemp
 	CategoryChromeCache = model.CategoryChromeCache
 	CategoryEdgeCache   = model.CategoryEdgeCache
+	CategoryVSCodeCache = model.CategoryVSCodeCache
 	CategoryRecycleBin  = model.CategoryRecycleBin
 	RiskLow             = model.RiskLow
 	RiskMedium          = model.RiskMedium

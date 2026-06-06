@@ -96,7 +96,7 @@ func (s *Service) Clean(ctx context.Context, request CleanRequest) (CleanResult,
 	defer s.removeCancel(request.TaskID)
 
 	deleter := cleandelete.New(winapi.IsReparsePoint)
-	result := CleanResult{}
+	result := CleanResult{Failures: make([]CleanFailure, 0)}
 	seen := map[string]bool{}
 
 	for _, itemID := range request.ItemIDs {
@@ -187,6 +187,13 @@ func scanRecycleBin() (*ScanItem, *ScanFailure) {
 }
 
 func buildScanResult(taskID string, items []ScanItem, failures []ScanFailure, cancelled bool) ScanResult {
+	if items == nil {
+		items = make([]ScanItem, 0)
+	}
+	if failures == nil {
+		failures = make([]ScanFailure, 0)
+	}
+
 	summaryMap := make(map[CleanCategory]CategorySummary)
 	totalBytes := int64(0)
 

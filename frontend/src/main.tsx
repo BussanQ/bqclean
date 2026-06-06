@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Code2,
   Chrome,
   Clock3,
   FileText,
@@ -28,7 +29,7 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
-type CleanCategory = 'user_temp' | 'system_temp' | 'chrome_cache' | 'edge_cache' | 'recycle_bin';
+type CleanCategory = 'user_temp' | 'system_temp' | 'chrome_cache' | 'edge_cache' | 'vscode_cache' | 'recycle_bin';
 type RiskLevel = 'low' | 'medium';
 
 type ScanItem = {
@@ -89,6 +90,7 @@ const categoryMeta: Record<CleanCategory, CategoryMeta> = {
   system_temp: { label: '系统临时文件', shortLabel: 'System Temp', icon: Monitor },
   chrome_cache: { label: 'Chrome 缓存', shortLabel: 'Chrome Cache', icon: Chrome },
   edge_cache: { label: 'Edge 缓存', shortLabel: 'Edge Cache', icon: ShieldCheck },
+  vscode_cache: { label: 'VS Code 扩展缓存', shortLabel: 'VS Code Cache', icon: Code2 },
   recycle_bin: { label: '回收站', shortLabel: 'Recycle Bin', icon: Trash2 },
 };
 
@@ -97,6 +99,7 @@ const categoryOrder: CleanCategory[] = [
   'system_temp',
   'chrome_cache',
   'edge_cache',
+  'vscode_cache',
   'recycle_bin',
 ];
 
@@ -155,7 +158,7 @@ function App() {
     setError(null);
     setCleanResult(null);
     try {
-      const result = await api.Scan({ categories: [] });
+      const result = normalizeScanResult(await api.Scan({ categories: [] }));
       setScanResult(result);
       setLastScanAt(new Date());
       setSelected(new Set(result.items.filter((item) => item.defaultSelected).map((item) => item.id)));
@@ -175,7 +178,7 @@ function App() {
     setBusy('clean');
     setError(null);
     try {
-      const result = await api.Clean({ taskId: scanResult.taskId, itemIds: Array.from(selected) });
+      const result = normalizeCleanResult(await api.Clean({ taskId: scanResult.taskId, itemIds: Array.from(selected) }));
       setCleanResult(result);
       const failedPaths = new Set(result.failures.map((failure) => failure.path));
       const remaining = new Set(
@@ -582,6 +585,22 @@ function formatBytes(bytes: number) {
     unit++;
   }
   return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
+}
+
+function normalizeScanResult(result: ScanResult): ScanResult {
+  return {
+    ...result,
+    items: result.items ?? [],
+    summaries: result.summaries ?? [],
+    failures: result.failures ?? [],
+  };
+}
+
+function normalizeCleanResult(result: CleanResult): CleanResult {
+  return {
+    ...result,
+    failures: result.failures ?? [],
+  };
 }
 
 function errorMessage(err: unknown) {

@@ -16,6 +16,7 @@ const (
 	CategorySystemTemp  CleanCategory = "system_temp"
 	CategoryChromeCache CleanCategory = "chrome_cache"
 	CategoryEdgeCache   CleanCategory = "edge_cache"
+	CategoryVSCodeCache CleanCategory = "vscode_cache"
 	CategoryRecycleBin  CleanCategory = "recycle_bin"
 )
 
