@@ -41,6 +41,20 @@ Go owns the scanning, classification, safety validation, and deletion logic. The
 
 Wails CLI may be installed during implementation. The current development environment already has Go, Node, and npm available.
 
+### Local Build Command
+
+For this project, use the Wails executable at:
+
+```powershell
+D:\Dev\program\gopkg\bin\wails.exe
+```
+
+Build the Windows desktop artifact from the repository root with:
+
+```powershell
+D:\Dev\program\gopkg\bin\wails.exe build
+```
+
 ## 4. User Flow
 
 1. User opens the application.
@@ -293,4 +307,3 @@ The first version is acceptable when:
 - It reports skipped and failed files.
 - It can clean test cache files and show reclaimed size correctly.
 - Unit and integration tests cover the safety model.
-
