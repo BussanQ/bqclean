@@ -12,6 +12,16 @@ type ScanFailure = model.ScanFailure
 type ScanResult = model.ScanResult
 type CleanFailure = model.CleanFailure
 type CleanResult = model.CleanResult
+type DiskGrowthOptions = model.DiskGrowthOptions
+type DiskGrowthEntry = model.DiskGrowthEntry
+type DiskGrowthResult = model.DiskGrowthResult
+type GrowthCleanRequest = model.GrowthCleanRequest
+type DirEntry = model.DirEntry
+type DiskSnapshot = model.DiskSnapshot
+type SnapshotDiff = model.SnapshotDiff
+type SnapshotCompareResult = model.SnapshotCompareResult
+type SnapshotPathCompareResult = model.SnapshotPathCompareResult
+type SnapshotInfo = model.SnapshotInfo
 
 const (
 	CategoryUserTemp    = model.CategoryUserTemp

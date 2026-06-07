@@ -72,3 +72,96 @@ type CleanResult struct {
 	Failures     []CleanFailure `json:"failures"`
 	Cancelled    bool           `json:"cancelled"`
 }
+
+type DiskGrowthOptions struct {
+	Root           string `json:"root"`
+	MaxDepth       int    `json:"maxDepth"`
+	MaxResults     int    `json:"maxResults"`
+	MinGrowthBytes int64  `json:"minGrowthBytes"`
+}
+
+type DiskGrowthEntry struct {
+	Path              string  `json:"path"`
+	Name              string  `json:"name"`
+	SizeBytes         int64   `json:"sizeBytes"`
+	PreviousSizeBytes int64   `json:"previousSizeBytes"`
+	GrowthBytes       int64   `json:"growthBytes"`
+	GrowthPercent     float64 `json:"growthPercent"`
+	Depth             int     `json:"depth"`
+	FileCount         int     `json:"fileCount"`
+	DirCount          int     `json:"dirCount"`
+	Trend             string  `json:"trend"`
+	Cleanable         bool    `json:"cleanable"`
+	DefaultSelected   bool    `json:"defaultSelected"`
+}
+
+type DiskGrowthResult struct {
+	TaskID             string            `json:"taskId"`
+	SnapshotID         string            `json:"snapshotId"`
+	Root               string            `json:"root"`
+	ScannedAt          string            `json:"scannedAt"`
+	PreviousSnapshotID string            `json:"previousSnapshotId"`
+	PreviousScannedAt  string            `json:"previousScannedAt"`
+	HasBaseline        bool              `json:"hasBaseline"`
+	TotalBytes         int64             `json:"totalBytes"`
+	TotalGrowthBytes   int64             `json:"totalGrowthBytes"`
+	DirCount           int               `json:"dirCount"`
+	FileCount          int               `json:"fileCount"`
+	Entries            []DiskGrowthEntry `json:"entries"`
+	Failures           []ScanFailure     `json:"failures"`
+	Cancelled          bool              `json:"cancelled"`
+}
+
+type GrowthCleanRequest struct {
+	SnapshotID string   `json:"snapshotId"`
+	Paths      []string `json:"paths"`
+}
+
+type DirEntry struct {
+	Path      string `json:"path"`
+	SizeBytes int64  `json:"sizeBytes"`
+	FileCount int    `json:"fileCount"`
+}
+
+type DiskSnapshot struct {
+	ID         string     `json:"id"`
+	CreatedAt  string     `json:"createdAt"`
+	Label      string     `json:"label"`
+	Drive      string     `json:"drive"`
+	Entries    []DirEntry `json:"entries"`
+	TotalBytes int64      `json:"totalBytes"`
+}
+
+type SnapshotDiff struct {
+	Path         string  `json:"path"`
+	OldSize      int64   `json:"oldSize"`
+	NewSize      int64   `json:"newSize"`
+	DeltaBytes   int64   `json:"deltaBytes"`
+	DeltaPercent float64 `json:"deltaPercent"`
+	Cleanable    bool    `json:"cleanable"`
+}
+
+type SnapshotCompareResult struct {
+	OldSnapshotID string         `json:"oldSnapshotId"`
+	NewSnapshotID string         `json:"newSnapshotId"`
+	OldLabel      string         `json:"oldLabel"`
+	NewLabel      string         `json:"newLabel"`
+	OldTotalBytes int64          `json:"oldTotalBytes"`
+	NewTotalBytes int64          `json:"newTotalBytes"`
+	Diffs         []SnapshotDiff `json:"diffs"`
+}
+
+type SnapshotPathCompareResult struct {
+	OldSnapshotID string         `json:"oldSnapshotId"`
+	NewSnapshotID string         `json:"newSnapshotId"`
+	Path          string         `json:"path"`
+	Diffs         []SnapshotDiff `json:"diffs"`
+}
+
+type SnapshotInfo struct {
+	ID         string `json:"id"`
+	CreatedAt  string `json:"createdAt"`
+	Label      string `json:"label"`
+	TotalBytes int64  `json:"totalBytes"`
+	EntryCount int    `json:"entryCount"`
+}
