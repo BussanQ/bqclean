@@ -11,7 +11,7 @@ import (
 	"cleanapp/internal/cleaner/rules"
 )
 
-type ReparseChecker func(path string) (bool, error)
+type ReparseChecker func(path string, entry fs.DirEntry) (bool, error)
 
 type Scanner struct {
 	IsReparsePoint ReparseChecker
@@ -45,7 +45,7 @@ func (s Scanner) Scan(ctx context.Context, roots []rules.Root) ([]model.ScanItem
 				return nil
 			}
 
-			reparse, err := s.isReparsePoint(path)
+			reparse, err := s.isReparsePoint(path, entry)
 			if err != nil {
 				failures = append(failures, model.ScanFailure{Path: path, Reason: err.Error()})
 				if entry.IsDir() {
@@ -91,9 +91,9 @@ func (s Scanner) Scan(ctx context.Context, roots []rules.Root) ([]model.ScanItem
 	return items, failures, cancelled
 }
 
-func (s Scanner) isReparsePoint(path string) (bool, error) {
+func (s Scanner) isReparsePoint(path string, entry fs.DirEntry) (bool, error) {
 	if s.IsReparsePoint == nil {
 		return false, nil
 	}
-	return s.IsReparsePoint(path)
+	return s.IsReparsePoint(path, entry)
 }

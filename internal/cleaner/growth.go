@@ -348,7 +348,7 @@ func scanGrowthSnapshot(ctx context.Context, id string, root string) (growthSnap
 func scanGrowthEntry(ctx context.Context, root string, path string, entry fs.DirEntry) (int64, int, int, []growthDirectoryRecord, []ScanFailure) {
 	failures := make([]ScanFailure, 0)
 	if entry.IsDir() {
-		reparse, err := winapi.IsReparsePoint(path)
+		reparse, err := winapi.EntryIsReparsePoint(path, entry)
 		if err != nil {
 			return 0, 0, 0, nil, []ScanFailure{{Path: path, Reason: err.Error()}}
 		}
@@ -385,7 +385,7 @@ func walkGrowthDir(ctx context.Context, snapshotRoot string, root string) (int64
 			return nil
 		}
 		if path != root {
-			reparse, err := winapi.IsReparsePoint(path)
+			reparse, err := winapi.EntryIsReparsePoint(path, entry)
 			if err != nil {
 				failures = append(failures, ScanFailure{Path: path, Reason: err.Error()})
 				if entry.IsDir() {
@@ -904,8 +904,28 @@ func latestGrowthSnapshot(store growthStore, root string) *growthSnapshot {
 	return nil
 }
 
+// maxGrowthSnapshotsPerRoot caps how many snapshots are kept per scanned
+// root; the newest ones win. Snapshots are appended in chronological order,
+// so trailing entries are the most recent.
+const maxGrowthSnapshotsPerRoot = 12
+
 func pruneGrowthSnapshots(snapshots []growthSnapshot) []growthSnapshot {
-	return snapshots
+	counts := map[string]int{}
+	keep := make([]bool, len(snapshots))
+	for i := len(snapshots) - 1; i >= 0; i-- {
+		key := strings.ToLower(filepath.Clean(snapshots[i].Root))
+		if counts[key] < maxGrowthSnapshotsPerRoot {
+			counts[key]++
+			keep[i] = true
+		}
+	}
+	pruned := make([]growthSnapshot, 0, len(snapshots))
+	for i, snapshot := range snapshots {
+		if keep[i] {
+			pruned = append(pruned, snapshot)
+		}
+	}
+	return pruned
 }
 
 func compactGrowthSnapshot(snapshot growthSnapshot) growthSnapshot {
@@ -968,7 +988,7 @@ func deleteGrowthTarget(ctx context.Context, path string) (int64, bool, *CleanFa
 		}
 		return 0, false, &CleanFailure{Path: path, Reason: err.Error()}
 	}
-	reparse, err := winapi.IsReparsePoint(path)
+	reparse, err := winapi.InfoIsReparsePoint(path, info)
 	if err != nil {
 		return 0, false, &CleanFailure{Path: path, Reason: err.Error()}
 	}
@@ -985,7 +1005,7 @@ func deleteGrowthTarget(ctx context.Context, path string) (int64, bool, *CleanFa
 			if walkErr != nil {
 				return walkErr
 			}
-			reparse, err := winapi.IsReparsePoint(child)
+			reparse, err := winapi.EntryIsReparsePoint(child, entry)
 			if err != nil {
 				return err
 			}
@@ -1018,7 +1038,7 @@ func deleteGrowthTarget(ctx context.Context, path string) (int64, bool, *CleanFa
 		}
 		for _, entry := range entries {
 			child := filepath.Join(path, entry.Name())
-			reparse, err := winapi.IsReparsePoint(child)
+			reparse, err := winapi.EntryIsReparsePoint(child, entry)
 			if err != nil {
 				return 0, false, &CleanFailure{Path: child, Reason: err.Error()}
 			}

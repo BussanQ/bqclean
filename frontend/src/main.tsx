@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   AlertTriangle,
@@ -187,7 +187,8 @@ function App() {
   const [growthSelected, setGrowthSelected] = useState<Set<string>>(new Set());
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
   const [childDiffs, setChildDiffs] = useState<Record<string, SnapshotDiff[]>>({});
-  const [loadingChildPath, setLoadingChildPath] = useState<string | null>(null);
+  const [loadingChildPaths, setLoadingChildPaths] = useState<Set<string>>(new Set());
+  const inFlightChildPaths = useRef(new Set<string>());
   const [expanded, setExpanded] = useState<Set<CleanCategory>>(new Set(['user_temp']));
   const [busy, setBusy] = useState<'scan' | 'clean' | 'growth' | 'growthClean' | 'snapshot' | 'list' | 'compare' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -218,14 +219,51 @@ function App() {
     return (scanResult?.items ?? []).filter((item) => selected.has(item.id));
   }, [scanResult, selected]);
 
-  const selectedBytes = selectedItems.reduce((sum, item) => sum + item.sizeBytes, 0);
-  const snapshotDiffs = (compareResult?.diffs ?? []).filter(isDetailGrowthDiff);
-  const growthEntries = snapshotDiffs.filter((diff) => diff.deltaBytes > 0);
-  const shrinkEntries = snapshotDiffs.filter((diff) => diff.deltaBytes < 0);
-  const selectedGrowthEntries = snapshotDiffs.filter((entry) => growthSelected.has(entry.path) && entry.cleanable && entry.deltaBytes > 0);
-  const selectedGrowthBytes = selectedGrowthEntries.reduce((sum, entry) => sum + Math.max(entry.newSize, 0), 0);
-  const totalComparedGrowth = growthEntries.reduce((sum, entry) => sum + entry.deltaBytes, 0);
-  const totalComparedShrink = shrinkEntries.reduce((sum, entry) => sum + Math.abs(entry.deltaBytes), 0);
+  const selectedBytes = useMemo(
+    () => selectedItems.reduce((sum, item) => sum + item.sizeBytes, 0),
+    [selectedItems],
+  );
+
+  const { snapshotDiffs, growthEntries, shrinkEntries, totalComparedGrowth, totalComparedShrink } = useMemo(() => {
+    const diffs = (compareResult?.diffs ?? []).filter(isDetailGrowthDiff);
+    const growth = diffs.filter((diff) => diff.deltaBytes > 0);
+    const shrink = diffs.filter((diff) => diff.deltaBytes < 0);
+    return {
+      snapshotDiffs: diffs,
+      growthEntries: growth,
+      shrinkEntries: shrink,
+      totalComparedGrowth: growth.reduce((sum, entry) => sum + entry.deltaBytes, 0),
+      totalComparedShrink: shrink.reduce((sum, entry) => sum + Math.abs(entry.deltaBytes), 0),
+    };
+  }, [compareResult]);
+
+  const { selectedGrowthEntries, selectedGrowthBytes } = useMemo(() => {
+    const entries = snapshotDiffs.filter((entry) => growthSelected.has(entry.path) && entry.cleanable && entry.deltaBytes > 0);
+    return {
+      selectedGrowthEntries: entries,
+      selectedGrowthBytes: entries.reduce((sum, entry) => sum + Math.max(entry.newSize, 0), 0),
+    };
+  }, [snapshotDiffs, growthSelected]);
+
+  const categoryStats = useMemo(() => {
+    const stats = new Map<CleanCategory, { sizeBytes: number; selectedCount: number; allSelected: boolean }>();
+    for (const [category, items] of grouped) {
+      let sizeBytes = 0;
+      let selectedCount = 0;
+      for (const item of items) {
+        sizeBytes += item.sizeBytes;
+        if (selected.has(item.id)) {
+          selectedCount++;
+        }
+      }
+      stats.set(category, {
+        sizeBytes,
+        selectedCount,
+        allSelected: items.length > 0 && selectedCount === items.length,
+      });
+    }
+    return stats;
+  }, [grouped, selected]);
   const canUseBackend = Boolean(api);
   const scanComplete = Boolean(scanResult && !busy);
   const issueCount = scanResult?.failures.length ?? 0;
@@ -286,7 +324,7 @@ function App() {
     setGrowthCleanResult(null);
     try {
       const label = labelInput.trim() || new Date().toLocaleString('zh-CN');
-      await api.TakeSnapshot('C:\\', label);
+      await api.TakeSnapshot('', label);
       setLabelInput('');
       setLastGrowthScanAt(new Date());
       await loadSnapshots();
@@ -317,9 +355,14 @@ function App() {
     if (!api || !oldSnapshotID || !newSnapshotID) {
       return;
     }
+    if (oldSnapshotID === newSnapshotID) {
+      setError('请选择两个不同的快照进行对比。');
+      return;
+    }
     setBusy('compare');
     setError(null);
     setGrowthCleanResult(null);
+    inFlightChildPaths.current.clear();
     try {
       const result = normalizeSnapshotCompareResult(await api.CompareSnapshots(oldSnapshotID, newSnapshotID));
       setCompareResult(result);
@@ -352,7 +395,7 @@ function App() {
   }
 
   function openExplorer(path: string) {
-    api?.OpenInExplorer(path).catch(() => {});
+    api?.OpenInExplorer(path).catch((err) => setError(errorMessage(err)));
   }
 
   async function confirmGrowthClean() {
@@ -456,17 +499,23 @@ function App() {
   }
 
   async function loadChildDiffs(path: string) {
-    if (!api || !compareResult || childDiffs[path] || loadingChildPath === path) {
+    if (!api || !compareResult || childDiffs[path] || inFlightChildPaths.current.has(path)) {
       return;
     }
-    setLoadingChildPath(path);
+    inFlightChildPaths.current.add(path);
+    setLoadingChildPaths((current) => new Set(current).add(path));
     try {
       const result = await api.CompareSnapshotPath(compareResult.oldSnapshotId, compareResult.newSnapshotId, path);
       setChildDiffs((current) => ({ ...current, [path]: result.diffs ?? [] }));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
-      setLoadingChildPath(null);
+      inFlightChildPaths.current.delete(path);
+      setLoadingChildPaths((current) => {
+        const next = new Set(current);
+        next.delete(path);
+        return next;
+      });
     }
   }
 
@@ -504,7 +553,7 @@ function App() {
         </div>
         {expandedDiffs.has(child.path) && (
           <>
-            {loadingChildPath === child.path && <span className="childLoading" style={{ paddingLeft: 8 + (level + 1) * 18 }}>正在加载下一层...</span>}
+            {loadingChildPaths.has(child.path) && <span className="childLoading" style={{ paddingLeft: 8 + (level + 1) * 18 }}>正在加载下一层...</span>}
             {renderChildDiffRows(child.path, level + 1)}
             {childDiffs[child.path] && childDiffs[child.path].filter(isDetailGrowthDiff).length === 0 && (
               <span className="childLoading" style={{ paddingLeft: 8 + (level + 1) * 18 }}>没有更细一级的变化记录</span>
@@ -546,8 +595,7 @@ function App() {
               {categoryOrder.map((category) => {
                 const Icon = categoryMeta[category].icon;
                 const items = grouped.get(category) ?? [];
-                const size = items.reduce((sum, item) => sum + item.sizeBytes, 0);
-                const selectedCount = items.filter((item) => selected.has(item.id)).length;
+                const stats = categoryStats.get(category);
                 const isActive = expanded.has(category);
                 return (
                   <button
@@ -559,8 +607,8 @@ function App() {
                   >
                     <Icon size={20} />
                     <span>{categoryMeta[category].shortLabel}</span>
-                    <small>{items.length > 0 ? formatBytes(size) : '-'}</small>
-                    <em>{selectedCount}/{items.length}</em>
+                    <small>{items.length > 0 ? formatBytes(stats?.sizeBytes ?? 0) : '-'}</small>
+                    <em>{stats?.selectedCount ?? 0}/{items.length}</em>
                   </button>
                 );
               })}
@@ -694,7 +742,8 @@ function App() {
               }
               const Icon = categoryMeta[category].icon;
               const visible = expanded.has(category);
-              const allSelected = items.every((item) => selected.has(item.id));
+              const stats = categoryStats.get(category);
+              const allSelected = stats?.allSelected ?? false;
               return (
                 <section className="categoryGroup" key={category}>
                   <div className="categoryRow">
@@ -707,7 +756,7 @@ function App() {
                       <span>{categoryMeta[category].label}</span>
                     </label>
                     <span className="countText">{items.length.toLocaleString('zh-CN')} files</span>
-                    <strong>{formatBytes(items.reduce((sum, item) => sum + item.sizeBytes, 0))}</strong>
+                    <strong>{formatBytes(stats?.sizeBytes ?? 0)}</strong>
                     <button className="iconButton ghost" type="button" title="更多">
                       <ChevronDown size={17} />
                     </button>
@@ -902,7 +951,7 @@ function App() {
                   </select>
                 </div>
               </div>
-              <button className="button primary fullWidth" onClick={compareSnapshots} disabled={!oldSnapshotID || !newSnapshotID || busy !== null} type="button" title="开始对比">
+              <button className="button primary fullWidth" onClick={compareSnapshots} disabled={!oldSnapshotID || !newSnapshotID || oldSnapshotID === newSnapshotID || busy !== null} type="button" title="开始对比">
                 {busy === 'compare' ? <Loader2 className="spin" size={18} /> : <TrendingUp size={18} />}
                 <span>开始对比</span>
               </button>
@@ -996,7 +1045,7 @@ function App() {
                             <p><strong>新大小：</strong>{formatBytes(diff.newSize)}</p>
                             <p><strong>变化：</strong><span className={diff.deltaBytes >= 0 ? 'growth' : 'shrink'}>{diff.deltaBytes >= 0 ? '+' : ''}{formatSignedBytes(diff.deltaBytes)} ({diff.deltaPercent >= 0 ? '+' : ''}{diff.deltaPercent}%)</span></p>
                             <div className="childDiffs">
-                              {loadingChildPath === diff.path && <span className="childLoading">正在加载下一层...</span>}
+                              {loadingChildPaths.has(diff.path) && <span className="childLoading">正在加载下一层...</span>}
                               {renderChildDiffRows(diff.path)}
                               {childDiffs[diff.path] && childDiffs[diff.path].filter(isDetailGrowthDiff).length === 0 && (
                                 <span className="childLoading">没有更细一级的变化记录</span>

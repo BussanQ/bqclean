@@ -2,6 +2,7 @@ package cleaner
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -108,5 +109,38 @@ func TestCleanGrowthPathsClearsDirectoryContents(t *testing.T) {
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatalf("expected cache file to be deleted, stat err: %v", err)
+	}
+}
+
+func TestPruneGrowthSnapshotsKeepsNewestPerRoot(t *testing.T) {
+	snapshots := make([]growthSnapshot, 0, maxGrowthSnapshotsPerRoot+4)
+	for i := 0; i < maxGrowthSnapshotsPerRoot+2; i++ {
+		snapshots = append(snapshots, growthSnapshot{ID: fmt.Sprintf("c-%d", i), Root: `C:\`})
+	}
+	snapshots = append(snapshots, growthSnapshot{ID: "d-0", Root: `D:\`}, growthSnapshot{ID: "d-1", Root: `d:\`})
+
+	pruned := pruneGrowthSnapshots(snapshots)
+
+	cCount, dCount := 0, 0
+	for _, snapshot := range pruned {
+		if snapshot.Root == `C:\` {
+			cCount++
+		} else {
+			dCount++
+		}
+	}
+	if cCount != maxGrowthSnapshotsPerRoot {
+		t.Fatalf("expected %d C: snapshots, got %d", maxGrowthSnapshotsPerRoot, cCount)
+	}
+	if dCount != 2 {
+		t.Fatalf("expected both D: snapshots to survive, got %d", dCount)
+	}
+	for _, snapshot := range pruned {
+		if snapshot.ID == "c-0" || snapshot.ID == "c-1" {
+			t.Fatalf("oldest C: snapshots should be pruned, found %s", snapshot.ID)
+		}
+	}
+	if pruned[len(pruned)-1].ID != "d-1" {
+		t.Fatalf("pruning must preserve order, last = %s", pruned[len(pruned)-1].ID)
 	}
 }

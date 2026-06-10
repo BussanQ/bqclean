@@ -10,7 +10,7 @@ import (
 	"cleanapp/internal/cleaner/rules"
 )
 
-type ReparseChecker func(path string) (bool, error)
+type ReparseChecker func(path string, info os.FileInfo) (bool, error)
 
 type Deleter struct {
 	IsReparsePoint ReparseChecker
@@ -39,7 +39,7 @@ func (d Deleter) Delete(ctx context.Context, item model.ScanItem, roots []rules.
 		return false, false, &model.CleanFailure{Path: item.Path, Reason: err.Error()}
 	}
 
-	reparse, err := d.isReparsePoint(item.Path)
+	reparse, err := d.isReparsePoint(item.Path, info)
 	if err != nil {
 		return false, false, &model.CleanFailure{Path: item.Path, Reason: err.Error()}
 	}
@@ -61,11 +61,11 @@ func (d Deleter) Delete(ctx context.Context, item model.ScanItem, roots []rules.
 	return true, false, nil
 }
 
-func (d Deleter) isReparsePoint(path string) (bool, error) {
+func (d Deleter) isReparsePoint(path string, info os.FileInfo) (bool, error) {
 	if d.IsReparsePoint == nil {
 		return false, nil
 	}
-	return d.IsReparsePoint(path)
+	return d.IsReparsePoint(path, info)
 }
 
 func removeEmptyParents(dir string, roots []rules.Root) {

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -17,10 +18,15 @@ import (
 	"cleanapp/internal/cleaner/winapi"
 )
 
+// maxScanSessions bounds how many completed scan sessions are kept for
+// later Clean calls; older sessions are evicted oldest-first.
+const maxScanSessions = 3
+
 type Service struct {
-	mu       sync.Mutex
-	sessions map[string]scanSession
-	cancels  map[string]context.CancelFunc
+	mu           sync.Mutex
+	sessions     map[string]scanSession
+	sessionOrder []string
+	cancels      map[string]context.CancelFunc
 }
 
 type scanSession struct {
@@ -46,17 +52,13 @@ func (s *Service) Scan(ctx context.Context, options ScanOptions) (ScanResult, er
 	defer s.removeCancel(taskID)
 
 	ruleSet := rules.Default(options.Categories)
-	scan := scanner.New(winapi.IsReparsePoint)
+	scan := scanner.New(winapi.EntryIsReparsePoint)
 	items, failures, cancelled := scan.Scan(taskCtx, ruleSet.Roots)
 
 	if rules.IncludesCategory(options.Categories, CategoryRecycleBin) {
-		recycleItem, failure := scanRecycleBin()
-		if failure != nil {
-			failures = append(failures, *failure)
-		}
-		if recycleItem != nil {
-			items = append(items, *recycleItem)
-		}
+		recycleItems, recycleFailures := scanRecycleBins(recycleBinRoots(), winapi.QueryRecycleBin)
+		failures = append(failures, recycleFailures...)
+		items = append(items, recycleItems...)
 	}
 
 	for i := range items {
@@ -71,6 +73,12 @@ func (s *Service) Scan(ctx context.Context, options ScanOptions) (ScanResult, er
 
 	s.mu.Lock()
 	s.sessions[taskID] = scanSession{roots: ruleSet.Roots, items: sessionItems}
+	s.sessionOrder = append(s.sessionOrder, taskID)
+	for len(s.sessionOrder) > maxScanSessions {
+		oldID := s.sessionOrder[0]
+		s.sessionOrder = s.sessionOrder[1:]
+		delete(s.sessions, oldID)
+	}
 	s.mu.Unlock()
 
 	return result, nil
@@ -95,7 +103,7 @@ func (s *Service) Clean(ctx context.Context, request CleanRequest) (CleanResult,
 	s.mu.Unlock()
 	defer s.removeCancel(request.TaskID)
 
-	deleter := cleandelete.New(winapi.IsReparsePoint)
+	deleter := cleandelete.New(winapi.InfoIsReparsePoint)
 	result := CleanResult{Failures: make([]CleanFailure, 0)}
 	seen := map[string]bool{}
 
@@ -166,24 +174,43 @@ func fallbackContext(ctx context.Context) context.Context {
 	return ctx
 }
 
-func scanRecycleBin() (*ScanItem, *ScanFailure) {
-	const root = `C:\`
-	size, count, err := winapi.QueryRecycleBin(root)
-	if err != nil {
-		return nil, &ScanFailure{Path: "Recycle Bin", Reason: err.Error()}
+// recycleBinRoots returns the drive roots whose recycle bins should be
+// scanned, falling back to the system drive when enumeration fails.
+func recycleBinRoots() []string {
+	roots, err := winapi.FixedDriveRoots()
+	if err == nil && len(roots) > 0 {
+		return roots
 	}
-	if size <= 0 && count <= 0 {
-		return nil, nil
+	systemDrive := os.Getenv("SystemDrive")
+	if systemDrive == "" {
+		systemDrive = "C:"
 	}
-	return &ScanItem{
-		Path:            root,
-		SizeBytes:       size,
-		ModifiedAt:      time.Now().Format(time.RFC3339),
-		Category:        CategoryRecycleBin,
-		Risk:            RiskMedium,
-		DefaultSelected: false,
-		IsVirtual:       true,
-	}, nil
+	return []string{systemDrive + `\`}
+}
+
+func scanRecycleBins(roots []string, query func(root string) (int64, int64, error)) ([]ScanItem, []ScanFailure) {
+	items := make([]ScanItem, 0, len(roots))
+	failures := make([]ScanFailure, 0)
+	for _, root := range roots {
+		size, count, err := query(root)
+		if err != nil {
+			failures = append(failures, ScanFailure{Path: "Recycle Bin (" + root + ")", Reason: err.Error()})
+			continue
+		}
+		if size <= 0 && count <= 0 {
+			continue
+		}
+		items = append(items, ScanItem{
+			Path:            root,
+			SizeBytes:       size,
+			ModifiedAt:      time.Now().Format(time.RFC3339),
+			Category:        CategoryRecycleBin,
+			Risk:            RiskMedium,
+			DefaultSelected: false,
+			IsVirtual:       true,
+		})
+	}
+	return items, failures
 }
 
 func buildScanResult(taskID string, items []ScanItem, failures []ScanFailure, cancelled bool) ScanResult {

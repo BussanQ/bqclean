@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,7 @@ func TestScanSkipsReparsePointSubtree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scan := New(func(path string) (bool, error) {
+	scan := New(func(path string, entry fs.DirEntry) (bool, error) {
 		return strings.Contains(path, "linkish"), nil
 	})
 	items, failures, cancelled := scan.Scan(context.Background(), []rules.Root{{
