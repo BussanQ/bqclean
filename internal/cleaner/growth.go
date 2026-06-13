@@ -24,6 +24,11 @@ const (
 	defaultGrowthMinGrowthBytes = 32 * 1024 * 1024
 	snapshotDetailMaxDepth      = 8
 	snapshotPathMaxResults      = 80
+	// snapshotStoreMinBytes is the minimum size for a deep (depth > 1)
+	// directory to be retained in a stored snapshot. Smaller deep dirs are
+	// pruned to bound the snapshot file size while keeping meaningful
+	// directories available for drill-down. Tune for size/detail tradeoff.
+	snapshotStoreMinBytes = 1 * 1024 * 1024
 )
 
 type growthStore struct {
@@ -88,7 +93,7 @@ func (s *Service) AnalyzeDiskGrowth(ctx context.Context, options DiskGrowthOptio
 	result := buildGrowthResult(taskID, current, previous, store, maxDepth, maxResults, minGrowth, failures, cancelled)
 
 	store.Version = 1
-	store.Snapshots = append(store.Snapshots, current)
+	store.Snapshots = append(store.Snapshots, compactGrowthSnapshot(current))
 	store.Snapshots = pruneGrowthSnapshots(store.Snapshots)
 	if err := saveGrowthStore(store); err != nil {
 		result.Failures = append(result.Failures, ScanFailure{Path: growthStorePath(), Reason: err.Error()})
@@ -115,7 +120,7 @@ func (s *Service) TakeSnapshot(ctx context.Context, drive string, label string) 
 
 	store, _ := loadGrowthStore()
 	store.Version = 1
-	store.Snapshots = append(store.Snapshots, current)
+	store.Snapshots = append(store.Snapshots, compactGrowthSnapshot(current))
 	store.Snapshots = pruneGrowthSnapshots(store.Snapshots)
 	if err := saveGrowthStore(store); err != nil {
 		return DiskSnapshot{}, err
@@ -935,7 +940,7 @@ func compactGrowthSnapshot(snapshot growthSnapshot) growthSnapshot {
 	dirs := make([]growthDirectoryRecord, 0, len(snapshot.Dirs))
 	seen := map[string]bool{}
 	for _, dir := range snapshot.Dirs {
-		if samePath(dir.Path, snapshot.Root) || shouldIncludeSnapshotDiff(dir) {
+		if shouldStoreSnapshotDir(dir, snapshot.Root) {
 			key := strings.ToLower(filepath.Clean(dir.Path))
 			if seen[key] {
 				continue
@@ -946,6 +951,17 @@ func compactGrowthSnapshot(snapshot growthSnapshot) growthSnapshot {
 	}
 	snapshot.Dirs = dirs
 	return snapshot
+}
+
+// shouldStoreSnapshotDir decides whether a directory record is kept in a
+// stored snapshot. Root and the first two levels are always kept (so the
+// top-level comparison is unchanged); deeper directories are kept when they
+// are cleanup targets or large enough to be worth drilling into.
+func shouldStoreSnapshotDir(dir growthDirectoryRecord, root string) bool {
+	if samePath(dir.Path, root) || dir.Depth <= 1 || isAllowedGrowthCleanupPath(dir.Path) {
+		return true
+	}
+	return dir.Depth <= snapshotDetailMaxDepth && dir.SizeBytes >= snapshotStoreMinBytes
 }
 
 func growthTrend(path string, currentSize int64, previous *growthSnapshot, store growthStore) string {

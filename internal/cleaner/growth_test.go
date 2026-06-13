@@ -144,3 +144,83 @@ func TestPruneGrowthSnapshotsKeepsNewestPerRoot(t *testing.T) {
 		t.Fatalf("pruning must preserve order, last = %s", pruned[len(pruned)-1].ID)
 	}
 }
+
+func TestCompactGrowthSnapshotKeepsDeepLargeDirs(t *testing.T) {
+	// Use a synthetic path outside Temp/LocalAppData so isAllowedGrowthCleanupPath
+	// does not treat deep dirs as cleanable. compactGrowthSnapshot does not touch disk.
+	base := filepath.Join("Z:", "snaptest")
+	u := filepath.Join(base, "u")
+	big := filepath.Join(u, "big")
+	small := filepath.Join(u, "small")
+	deep := filepath.Join(big, "a", "b", "c", "d", "e", "f", "deep")
+
+	snapshot := growthSnapshot{
+		Root: base,
+		Dirs: []growthDirectoryRecord{
+			{Path: base, Depth: 0, SizeBytes: 100 * 1024 * 1024},
+			{Path: u, Depth: 1, SizeBytes: 50 * 1024},
+			{Path: big, Depth: 2, SizeBytes: 2 * 1024 * 1024},
+			{Path: small, Depth: 2, SizeBytes: 500 * 1024},
+			{Path: deep, Depth: 9, SizeBytes: 5 * 1024 * 1024},
+		},
+	}
+
+	kept := map[string]bool{}
+	for _, dir := range compactGrowthSnapshot(snapshot).Dirs {
+		kept[dir.Path] = true
+	}
+
+	for _, want := range []string{base, u, big} {
+		if !kept[want] {
+			t.Fatalf("expected %q to be retained", want)
+		}
+	}
+	for _, drop := range []string{small, deep} {
+		if kept[drop] {
+			t.Fatalf("expected %q to be pruned (deep+small or too deep)", drop)
+		}
+	}
+}
+
+func TestCompareGrowthSnapshotChildrenMultiLevel(t *testing.T) {
+	base := t.TempDir()
+	d1 := filepath.Join(base, "a")
+	d2 := filepath.Join(d1, "b")
+	d3 := filepath.Join(d2, "c")
+
+	mk := func(s1, s2, s3 int64) growthSnapshot {
+		return growthSnapshot{
+			Root: base,
+			Dirs: []growthDirectoryRecord{
+				{Path: base, Depth: 0, SizeBytes: s1 + 1},
+				{Path: d1, Depth: 1, SizeBytes: s1},
+				{Path: d2, Depth: 2, SizeBytes: s2},
+				{Path: d3, Depth: 3, SizeBytes: s3},
+			},
+		}
+	}
+	oldSnap := mk(10*1024*1024, 6*1024*1024, 3*1024*1024)
+	newSnap := mk(15*1024*1024, 9*1024*1024, 5*1024*1024)
+
+	steps := []struct {
+		parent    string
+		wantChild string
+		wantDelta int64
+	}{
+		{base, d1, 5 * 1024 * 1024},
+		{d1, d2, 3 * 1024 * 1024},
+		{d2, d3, 2 * 1024 * 1024},
+	}
+	for _, step := range steps {
+		diffs := compareGrowthSnapshotChildren(oldSnap, newSnap, step.parent)
+		if len(diffs) != 1 {
+			t.Fatalf("parent %q: expected 1 direct child, got %d", step.parent, len(diffs))
+		}
+		if diffs[0].Path != step.wantChild {
+			t.Fatalf("parent %q: expected child %q, got %q", step.parent, step.wantChild, diffs[0].Path)
+		}
+		if diffs[0].DeltaBytes != step.wantDelta {
+			t.Fatalf("parent %q: expected delta %d, got %d", step.parent, step.wantDelta, diffs[0].DeltaBytes)
+		}
+	}
+}

@@ -123,9 +123,16 @@ type SnapshotPathCompareResult = {
 };
 
 const detailGrowthMinBytes = 20 * 1024 * 1024;
+// Deeper drill-down levels use a lower threshold since nested directories
+// grow by smaller amounts; otherwise deep folders would be hidden entirely.
+const childGrowthMinBytes = 2 * 1024 * 1024;
 
 function isDetailGrowthDiff(diff: SnapshotDiff) {
   return diff.deltaBytes > detailGrowthMinBytes;
+}
+
+function isChildDetailGrowthDiff(diff: SnapshotDiff) {
+  return diff.deltaBytes > childGrowthMinBytes;
 }
 
 type WailsAPI = {
@@ -520,7 +527,7 @@ function App() {
   }
 
   function renderChildDiffRows(parentPath: string, level = 0): React.ReactNode {
-    const rows = (childDiffs[parentPath] ?? []).filter(isDetailGrowthDiff);
+    const rows = (childDiffs[parentPath] ?? []).filter(isChildDetailGrowthDiff);
     if (rows.length === 0) {
       return null;
     }
@@ -555,7 +562,7 @@ function App() {
           <>
             {loadingChildPaths.has(child.path) && <span className="childLoading" style={{ paddingLeft: 8 + (level + 1) * 18 }}>正在加载下一层...</span>}
             {renderChildDiffRows(child.path, level + 1)}
-            {childDiffs[child.path] && childDiffs[child.path].filter(isDetailGrowthDiff).length === 0 && (
+            {childDiffs[child.path] && childDiffs[child.path].filter(isChildDetailGrowthDiff).length === 0 && (
               <span className="childLoading" style={{ paddingLeft: 8 + (level + 1) * 18 }}>没有更细一级的变化记录</span>
             )}
           </>
@@ -1047,7 +1054,7 @@ function App() {
                             <div className="childDiffs">
                               {loadingChildPaths.has(diff.path) && <span className="childLoading">正在加载下一层...</span>}
                               {renderChildDiffRows(diff.path)}
-                              {childDiffs[diff.path] && childDiffs[diff.path].filter(isDetailGrowthDiff).length === 0 && (
+                              {childDiffs[diff.path] && childDiffs[diff.path].filter(isChildDetailGrowthDiff).length === 0 && (
                                 <span className="childLoading">没有更细一级的变化记录</span>
                               )}
                             </div>
