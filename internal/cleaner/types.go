@@ -24,12 +24,15 @@ type SnapshotPathCompareResult = model.SnapshotPathCompareResult
 type SnapshotInfo = model.SnapshotInfo
 
 const (
-	CategoryUserTemp    = model.CategoryUserTemp
-	CategorySystemTemp  = model.CategorySystemTemp
-	CategoryChromeCache = model.CategoryChromeCache
-	CategoryEdgeCache   = model.CategoryEdgeCache
-	CategoryVSCodeCache = model.CategoryVSCodeCache
-	CategoryRecycleBin  = model.CategoryRecycleBin
-	RiskLow             = model.RiskLow
-	RiskMedium          = model.RiskMedium
+	CategoryUserTemp      = model.CategoryUserTemp
+	CategorySystemTemp    = model.CategorySystemTemp
+	CategoryChromeCache   = model.CategoryChromeCache
+	CategoryEdgeCache     = model.CategoryEdgeCache
+	CategoryVSCodeCache   = model.CategoryVSCodeCache
+	CategoryWindowsCache  = model.CategoryWindowsCache
+	CategoryDevCache      = model.CategoryDevCache
+	CategoryWindowsUpdate = model.CategoryWindowsUpdate
+	CategoryRecycleBin    = model.CategoryRecycleBin
+	RiskLow               = model.RiskLow
+	RiskMedium            = model.RiskMedium
 )

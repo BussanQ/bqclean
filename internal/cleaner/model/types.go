@@ -12,12 +12,15 @@ type CleanRequest struct {
 type CleanCategory string
 
 const (
-	CategoryUserTemp    CleanCategory = "user_temp"
-	CategorySystemTemp  CleanCategory = "system_temp"
-	CategoryChromeCache CleanCategory = "chrome_cache"
-	CategoryEdgeCache   CleanCategory = "edge_cache"
-	CategoryVSCodeCache CleanCategory = "vscode_cache"
-	CategoryRecycleBin  CleanCategory = "recycle_bin"
+	CategoryUserTemp      CleanCategory = "user_temp"
+	CategorySystemTemp    CleanCategory = "system_temp"
+	CategoryChromeCache   CleanCategory = "chrome_cache"
+	CategoryEdgeCache     CleanCategory = "edge_cache"
+	CategoryVSCodeCache   CleanCategory = "vscode_cache"
+	CategoryWindowsCache  CleanCategory = "windows_cache"
+	CategoryDevCache      CleanCategory = "dev_cache"
+	CategoryWindowsUpdate CleanCategory = "windows_update"
+	CategoryRecycleBin    CleanCategory = "recycle_bin"
 )
 
 type RiskLevel string

@@ -36,7 +36,19 @@ BQ Clean 是一个基于 Go 和 Wails 的 Windows 桌面缓存清理工具。它
   - `Code Cache`
   - `GPUCache`
   - `Service Worker\CacheStorage`
+- VS Code 扩展缓存：`%APPDATA%\Code\CachedExtensionVSIXs`
+- Windows 系统缓存（低风险，默认勾选）：
+  - `%LOCALAPPDATA%\Microsoft\Windows\Explorer`（缩略图/图标缓存）
+  - `%LOCALAPPDATA%\Microsoft\Windows\INetCache`
+  - `%LOCALAPPDATA%\CrashDumps`
+  - `%LOCALAPPDATA%\Microsoft\Windows\WER`
+- 开发者工具缓存（低风险，默认不勾选）：
+  - `%LOCALAPPDATA%\npm-cache`、`pip\Cache`、`go-build`、`Yarn\Cache`、`NuGet\v3-cache`、`NuGet\Cache`
+- 系统更新与日志（中风险，默认不勾选，需管理员权限）：
+  - `%SystemRoot%\SoftwareDistribution\Download`、`SoftwareDistribution\DeliveryOptimization`、`Logs`、`Prefetch`
 - 回收站：通过 Windows API 统计和清理
+
+以上系统/开发者缓存目录在生成扫描规则时会校验是否存在，未安装相关工具时对应目录会被自动跳过，不产生“路径不存在”报错。
 
 浏览器的 Cookie、History、Login Data、Local Storage、Session Storage 等用户数据目录会被明确排除。
 
