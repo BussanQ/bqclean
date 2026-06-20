@@ -82,3 +82,36 @@ func TestScanAppliesRootFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestScanSkipsConfiguredSubdir(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "RtBackup")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "keep.etl.001"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "skip.etl.001"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	scan := New(func(string, fs.DirEntry) (bool, error) { return false, nil })
+	items, failures, cancelled := scan.Scan(context.Background(), []rules.Root{{
+		Path:     root,
+		Category: model.CategoryWindowsLogs,
+		Risk:     model.RiskMedium,
+		Filter:   func(name string) bool { return strings.Contains(name, ".etl.") },
+		SkipDir:  func(name string) bool { return strings.EqualFold(name, "RtBackup") },
+	}})
+
+	if cancelled {
+		t.Fatalf("scan should not be cancelled")
+	}
+	if len(failures) != 0 {
+		t.Fatalf("expected no failures, got %#v", failures)
+	}
+	if len(items) != 1 || filepath.Base(items[0].Path) != "keep.etl.001" {
+		t.Fatalf("expected only keep.etl.001 outside the skipped subdir, got %#v", items)
+	}
+}

@@ -17,6 +17,10 @@ type Root struct {
 	// cleanup items. It receives the file's base name and returns true to keep
 	// it. Roots without a filter include every regular file in the subtree.
 	Filter func(name string) bool
+	// SkipDir, when non-nil, prunes subdirectories during the walk. It receives
+	// a directory's base name and returns true to skip descending into it,
+	// avoiding scan-failure noise from system folders that are always locked.
+	SkipDir func(name string) bool
 }
 
 type RuleSet struct {
@@ -126,6 +130,7 @@ func Default(categories []model.CleanCategory) RuleSet {
 		// rotated ".etl.<suffix>" segments, which are safe to delete.
 		if root, ok := pathRoot(systemRoot, model.CategoryWindowsLogs, model.RiskMedium, true, "System32", "LogFiles", "WMI"); ok {
 			root.Filter = isRotatedETL
+			root.SkipDir = isLockedWMISubdir
 			roots = append(roots, root)
 		}
 	}
@@ -155,6 +160,14 @@ func isRotatedETL(name string) bool {
 	const marker = ".etl."
 	idx := strings.Index(lower, marker)
 	return idx >= 0 && idx+len(marker) < len(lower)
+}
+
+// isLockedWMISubdir reports whether name is a WMI trace subdirectory that the OS
+// keeps locked and that never holds rotated segments we can clean. RtBackup
+// stores real-time boot-trace logs and always denies access, so descending into
+// it only produces "access denied" scan noise.
+func isLockedWMISubdir(name string) bool {
+	return strings.EqualFold(name, "RtBackup")
 }
 
 // pathRoot builds a Root by joining base with parts. It returns ok=false when

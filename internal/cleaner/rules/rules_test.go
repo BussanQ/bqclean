@@ -151,6 +151,15 @@ func TestDefaultWindowsLogsRuleFiltersRotatedETLOnly(t *testing.T) {
 	if root.Filter == nil {
 		t.Fatal("expected windows logs root to carry a filter")
 	}
+	if root.SkipDir == nil {
+		t.Fatal("expected windows logs root to skip locked subdirs")
+	}
+	if !root.SkipDir("RtBackup") || !root.SkipDir("rtbackup") {
+		t.Fatal("expected RtBackup subdir to be skipped (case-insensitive)")
+	}
+	if root.SkipDir("SomethingElse") {
+		t.Fatal("expected unrelated subdir not to be skipped")
+	}
 
 	keep := []string{"Diagtrack-Listener.etl.001", "Diagtrack-Listener.etl.0001", "LwtNetLog.etl.bak"}
 	for _, name := range keep {

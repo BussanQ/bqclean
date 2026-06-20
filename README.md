@@ -47,7 +47,7 @@ BQ Clean 是一个基于 Go 和 Wails 的 Windows 桌面缓存清理工具。它
 - 系统更新与日志（中风险，默认不勾选，需管理员权限）：
   - `%SystemRoot%\SoftwareDistribution\Download`、`SoftwareDistribution\DeliveryOptimization`、`Logs`、`Prefetch`
 - 系统遥测日志 WMI（中风险，默认勾选，需管理员权限）：
-  - `%SystemRoot%\System32\LogFiles\WMI` 下已轮转的 ETW 跟踪分段（`*.etl.*`，如 `Diagtrack-Listener.etl.001`）；正在使用的 `.etl` 活动日志被跳过
+  - `%SystemRoot%\System32\LogFiles\WMI` 下已轮转的 ETW 跟踪分段（`*.etl.*`，如 `Diagtrack-Listener.etl.001`）；正在使用的 `.etl` 活动日志、以及始终被系统锁定的 `RtBackup` 子目录会被跳过
 - 第三方应用缓存（低风险，默认勾选）：
   - `%ProgramData%\Thunder Network\XLLiveUD\Download`（迅雷更新下载缓存）
 - 回收站：通过 Windows API 统计和清理

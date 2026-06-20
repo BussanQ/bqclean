@@ -45,6 +45,10 @@ func (s Scanner) Scan(ctx context.Context, roots []rules.Root) ([]model.ScanItem
 				return nil
 			}
 
+			if entry.IsDir() && root.SkipDir != nil && root.SkipDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+
 			reparse, err := s.isReparsePoint(path, entry)
 			if err != nil {
 				failures = append(failures, model.ScanFailure{Path: path, Reason: err.Error()})
