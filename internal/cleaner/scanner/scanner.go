@@ -71,6 +71,9 @@ func (s Scanner) Scan(ctx context.Context, roots []rules.Root) ([]model.ScanItem
 			if info.IsDir() {
 				return nil
 			}
+			if root.Filter != nil && !root.Filter(entry.Name()) {
+				return nil
+			}
 
 			items = append(items, model.ScanItem{
 				Path:            path,

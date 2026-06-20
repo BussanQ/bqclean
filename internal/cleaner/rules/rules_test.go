@@ -125,6 +125,92 @@ func TestDefaultWindowsUpdateRulesAreMediumRiskUnderSystemRoot(t *testing.T) {
 	}
 }
 
+func TestDefaultWindowsLogsRuleFiltersRotatedETLOnly(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("SystemRoot", temp)
+
+	wmiDir := filepath.Join(temp, "System32", "LogFiles", "WMI")
+	if err := os.MkdirAll(wmiDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	ruleSet := Default([]model.CleanCategory{model.CategoryWindowsLogs})
+	if len(ruleSet.Roots) != 1 {
+		t.Fatalf("expected 1 windows logs root, got %d: %#v", len(ruleSet.Roots), ruleSet.Roots)
+	}
+	root := ruleSet.Roots[0]
+	if filepath.Clean(root.Path) != filepath.Clean(wmiDir) {
+		t.Fatalf("expected windows logs root %q, got %q", wmiDir, root.Path)
+	}
+	if root.Category != model.CategoryWindowsLogs {
+		t.Fatalf("expected category %q, got %q", model.CategoryWindowsLogs, root.Category)
+	}
+	if root.Risk != model.RiskMedium || !root.DefaultSelected {
+		t.Fatalf("expected medium-risk default-selected root, got %#v", root)
+	}
+	if root.Filter == nil {
+		t.Fatal("expected windows logs root to carry a filter")
+	}
+
+	keep := []string{"Diagtrack-Listener.etl.001", "Diagtrack-Listener.etl.0001", "LwtNetLog.etl.bak"}
+	for _, name := range keep {
+		if !root.Filter(name) {
+			t.Fatalf("expected rotated segment %q to be kept", name)
+		}
+	}
+	drop := []string{"Diagtrack-Listener.etl", "RadioMgr.etl", "Diagtrack-Listener.etl.", "notes.txt"}
+	for _, name := range drop {
+		if root.Filter(name) {
+			t.Fatalf("expected %q to be skipped", name)
+		}
+	}
+}
+
+func TestDefaultWindowsLogsRuleSkippedWhenDirMissing(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("SystemRoot", temp)
+
+	ruleSet := Default([]model.CleanCategory{model.CategoryWindowsLogs})
+	if len(ruleSet.Roots) != 0 {
+		t.Fatalf("expected no roots when WMI dir is absent, got %#v", ruleSet.Roots)
+	}
+}
+
+func TestDefaultAppCacheRuleResolvesUnderProgramData(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("ProgramData", temp)
+
+	expected := filepath.Join(temp, "Thunder Network", "XLLiveUD", "Download")
+	if err := os.MkdirAll(expected, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	ruleSet := Default([]model.CleanCategory{model.CategoryAppCache})
+	if len(ruleSet.Roots) != 1 {
+		t.Fatalf("expected 1 app cache root, got %d: %#v", len(ruleSet.Roots), ruleSet.Roots)
+	}
+	root := ruleSet.Roots[0]
+	if filepath.Clean(root.Path) != filepath.Clean(expected) {
+		t.Fatalf("expected app cache root %q, got %q", expected, root.Path)
+	}
+	if root.Category != model.CategoryAppCache {
+		t.Fatalf("expected category %q, got %q", model.CategoryAppCache, root.Category)
+	}
+	if root.Risk != model.RiskLow || !root.DefaultSelected {
+		t.Fatalf("expected low-risk default-selected root, got %#v", root)
+	}
+}
+
+func TestDefaultAppCacheRuleSkippedWhenDirMissing(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("ProgramData", temp)
+
+	ruleSet := Default([]model.CleanCategory{model.CategoryAppCache})
+	if len(ruleSet.Roots) != 0 {
+		t.Fatalf("expected no roots when app cache dir is absent, got %#v", ruleSet.Roots)
+	}
+}
+
 func TestDefaultVSCodeRulesIncludeCachedExtensionVSIXs(t *testing.T) {
 	temp := t.TempDir()
 	t.Setenv("APPDATA", temp)

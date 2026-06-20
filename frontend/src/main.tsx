@@ -10,6 +10,7 @@ import {
   Code2,
   Chrome,
   Clock3,
+  Download,
   ExternalLink,
   FileText,
   Filter,
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
-type CleanCategory = 'user_temp' | 'system_temp' | 'chrome_cache' | 'edge_cache' | 'vscode_cache' | 'windows_cache' | 'dev_cache' | 'windows_update' | 'recycle_bin';
+type CleanCategory = 'user_temp' | 'system_temp' | 'chrome_cache' | 'edge_cache' | 'vscode_cache' | 'windows_cache' | 'dev_cache' | 'windows_update' | 'windows_logs' | 'app_cache' | 'recycle_bin';
 type RiskLevel = 'low' | 'medium';
 
 type ScanItem = {
@@ -164,6 +165,8 @@ const categoryMeta: Record<CleanCategory, CategoryMeta> = {
   windows_cache: { label: 'Windows 系统缓存', shortLabel: 'Win Cache', icon: HardDrive },
   dev_cache: { label: '开发者工具缓存', shortLabel: 'Dev Cache', icon: Package },
   windows_update: { label: '系统更新与日志', shortLabel: 'Win Update', icon: RefreshCw },
+  windows_logs: { label: '系统遥测日志 (WMI)', shortLabel: 'WMI Logs', icon: FileText },
+  app_cache: { label: '第三方应用缓存', shortLabel: 'App Cache', icon: Download },
   recycle_bin: { label: '回收站', shortLabel: 'Recycle Bin', icon: Trash2 },
 };
 
@@ -176,6 +179,8 @@ const categoryOrder: CleanCategory[] = [
   'windows_cache',
   'dev_cache',
   'windows_update',
+  'windows_logs',
+  'app_cache',
   'recycle_bin',
 ];
 

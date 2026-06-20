@@ -32,6 +32,8 @@ const (
 	CategoryWindowsCache  = model.CategoryWindowsCache
 	CategoryDevCache      = model.CategoryDevCache
 	CategoryWindowsUpdate = model.CategoryWindowsUpdate
+	CategoryWindowsLogs   = model.CategoryWindowsLogs
+	CategoryAppCache      = model.CategoryAppCache
 	CategoryRecycleBin    = model.CategoryRecycleBin
 	RiskLow               = model.RiskLow
 	RiskMedium            = model.RiskMedium

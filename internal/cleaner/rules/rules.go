@@ -13,6 +13,10 @@ type Root struct {
 	Category        model.CleanCategory
 	DefaultSelected bool
 	Risk            model.RiskLevel
+	// Filter, when non-nil, restricts which files under Path are surfaced as
+	// cleanup items. It receives the file's base name and returns true to keep
+	// it. Roots without a filter include every regular file in the subtree.
+	Filter func(name string) bool
 }
 
 type RuleSet struct {
@@ -111,7 +115,46 @@ func Default(categories []model.CleanCategory) RuleSet {
 		}
 	}
 
+	if selected[model.CategoryWindowsLogs] {
+		systemRoot := os.Getenv("SystemRoot")
+		if systemRoot == "" {
+			systemRoot = `C:\Windows`
+		}
+		// The DiagTrack / WMI AutoLogger trace directory. The live ".etl"
+		// session files are kept open by the tracing service (and the RtBackup
+		// boot-trace logs are locked too), so isRotatedETL surfaces only the
+		// rotated ".etl.<suffix>" segments, which are safe to delete.
+		if root, ok := pathRoot(systemRoot, model.CategoryWindowsLogs, model.RiskMedium, true, "System32", "LogFiles", "WMI"); ok {
+			root.Filter = isRotatedETL
+			roots = append(roots, root)
+		}
+	}
+
+	if selected[model.CategoryAppCache] {
+		// Third-party application caches that regenerate on demand. Resolved
+		// under %ProgramData% and skipped when the app is not installed.
+		programData := os.Getenv("ProgramData")
+		for _, parts := range [][]string{
+			{"Thunder Network", "XLLiveUD", "Download"},
+		} {
+			if root, ok := pathRoot(programData, model.CategoryAppCache, model.RiskLow, true, parts...); ok {
+				roots = append(roots, root)
+			}
+		}
+	}
+
 	return RuleSet{Roots: normalizeExistingRoots(roots)}
+}
+
+// isRotatedETL reports whether name is a rotated/archived ETW trace segment
+// (e.g. "Diagtrack-Listener.etl.001") rather than a live ".etl" session log.
+// Live logs are held open by the tracing service and cannot be deleted, so only
+// the rotated segments are eligible for cleanup.
+func isRotatedETL(name string) bool {
+	lower := strings.ToLower(name)
+	const marker = ".etl."
+	idx := strings.Index(lower, marker)
+	return idx >= 0 && idx+len(marker) < len(lower)
 }
 
 // pathRoot builds a Root by joining base with parts. It returns ok=false when
@@ -149,6 +192,8 @@ func categorySet(categories []model.CleanCategory) map[model.CleanCategory]bool 
 		model.CategoryWindowsCache,
 		model.CategoryDevCache,
 		model.CategoryWindowsUpdate,
+		model.CategoryWindowsLogs,
+		model.CategoryAppCache,
 		model.CategoryRecycleBin,
 	}
 	set := make(map[model.CleanCategory]bool, len(all))

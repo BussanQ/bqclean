@@ -20,6 +20,8 @@ const (
 	CategoryWindowsCache  CleanCategory = "windows_cache"
 	CategoryDevCache      CleanCategory = "dev_cache"
 	CategoryWindowsUpdate CleanCategory = "windows_update"
+	CategoryWindowsLogs   CleanCategory = "windows_logs"
+	CategoryAppCache      CleanCategory = "app_cache"
 	CategoryRecycleBin    CleanCategory = "recycle_bin"
 )
 
