@@ -163,13 +163,13 @@ func TestDefaultWindowsLogsRuleFiltersRotatedETLOnly(t *testing.T) {
 
 	keep := []string{"Diagtrack-Listener.etl.001", "Diagtrack-Listener.etl.0001", "LwtNetLog.etl.bak"}
 	for _, name := range keep {
-		if !root.Filter(name) {
+		if !root.Filter(name, 0) {
 			t.Fatalf("expected rotated segment %q to be kept", name)
 		}
 	}
 	drop := []string{"Diagtrack-Listener.etl", "RadioMgr.etl", "Diagtrack-Listener.etl.", "notes.txt"}
 	for _, name := range drop {
-		if root.Filter(name) {
+		if root.Filter(name, 0) {
 			t.Fatalf("expected %q to be skipped", name)
 		}
 	}
@@ -235,5 +235,55 @@ func TestDefaultVSCodeRulesIncludeCachedExtensionVSIXs(t *testing.T) {
 	}
 	if ruleSet.Roots[0].Category != model.CategoryVSCodeCache {
 		t.Fatalf("expected category %q, got %q", model.CategoryVSCodeCache, ruleSet.Roots[0].Category)
+	}
+}
+
+func TestDefaultEdgeIndexedDBRuleFiltersLargeBlobsOnly(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("LOCALAPPDATA", temp)
+
+	userData := filepath.Join(temp, "Microsoft", "Edge", "User Data")
+	for _, profile := range []string{"Default", "Profile 1"} {
+		if err := os.MkdirAll(filepath.Join(userData, profile, "IndexedDB"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ruleSet := Default([]model.CleanCategory{model.CategoryEdgeIndexedDB})
+	if len(ruleSet.Roots) != 2 {
+		t.Fatalf("expected 2 edge indexeddb roots, got %d: %#v", len(ruleSet.Roots), ruleSet.Roots)
+	}
+
+	for _, root := range ruleSet.Roots {
+		if root.Category != model.CategoryEdgeIndexedDB {
+			t.Fatalf("expected category %q, got %q", model.CategoryEdgeIndexedDB, root.Category)
+		}
+		if root.Risk != model.RiskMedium || root.DefaultSelected {
+			t.Fatalf("expected medium-risk non-default-selected root, got %#v", root)
+		}
+		if root.Filter == nil {
+			t.Fatal("expected edge indexeddb root to carry a size filter")
+		}
+		if !root.Filter("0000123.blob", 50<<20) || !root.Filter("anything", 64<<20) {
+			t.Fatal("expected files at or above 50 MiB to be kept regardless of name")
+		}
+		if root.Filter("0000123.blob", (50<<20)-1) {
+			t.Fatal("expected files under 50 MiB to be skipped")
+		}
+	}
+}
+
+func TestDefaultEdgeIndexedDBRuleSkippedWhenDirMissing(t *testing.T) {
+	temp := t.TempDir()
+	t.Setenv("LOCALAPPDATA", temp)
+
+	// A profile directory without an IndexedDB store must not surface a root.
+	if err := os.MkdirAll(filepath.Join(temp, "Microsoft", "Edge", "User Data", "Default"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	ruleSet := Default([]model.CleanCategory{model.CategoryEdgeIndexedDB})
+	if len(ruleSet.Roots) != 0 {
+		t.Fatalf("expected no edge indexeddb roots, got %d: %#v", len(ruleSet.Roots), ruleSet.Roots)
 	}
 }

@@ -14,9 +14,10 @@ type Root struct {
 	DefaultSelected bool
 	Risk            model.RiskLevel
 	// Filter, when non-nil, restricts which files under Path are surfaced as
-	// cleanup items. It receives the file's base name and returns true to keep
-	// it. Roots without a filter include every regular file in the subtree.
-	Filter func(name string) bool
+	// cleanup items. It receives the file's base name and size in bytes and
+	// returns true to keep it. Roots without a filter include every regular
+	// file in the subtree.
+	Filter func(name string, sizeBytes int64) bool
 	// SkipDir, when non-nil, prunes subdirectories during the walk. It receives
 	// a directory's base name and returns true to skip descending into it,
 	// avoiding scan-failure noise from system folders that are always locked.
@@ -61,6 +62,10 @@ func Default(categories []model.CleanCategory) RuleSet {
 
 	if selected[model.CategoryEdgeCache] {
 		roots = append(roots, browserRoots(filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "User Data"), model.CategoryEdgeCache)...)
+	}
+
+	if selected[model.CategoryEdgeIndexedDB] {
+		roots = append(roots, edgeIndexedDBRoots(filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "User Data"))...)
 	}
 
 	if selected[model.CategoryVSCodeCache] {
@@ -155,7 +160,7 @@ func Default(categories []model.CleanCategory) RuleSet {
 // (e.g. "Diagtrack-Listener.etl.001") rather than a live ".etl" session log.
 // Live logs are held open by the tracing service and cannot be deleted, so only
 // the rotated segments are eligible for cleanup.
-func isRotatedETL(name string) bool {
+func isRotatedETL(name string, _ int64) bool {
 	lower := strings.ToLower(name)
 	const marker = ".etl."
 	idx := strings.Index(lower, marker)
@@ -201,6 +206,7 @@ func categorySet(categories []model.CleanCategory) map[model.CleanCategory]bool 
 		model.CategorySystemTemp,
 		model.CategoryChromeCache,
 		model.CategoryEdgeCache,
+		model.CategoryEdgeIndexedDB,
 		model.CategoryVSCodeCache,
 		model.CategoryWindowsCache,
 		model.CategoryDevCache,
@@ -257,6 +263,55 @@ func browserRoots(userData string, category model.CleanCategory) []Root {
 		}
 	}
 	return roots
+}
+
+// largeBlobThreshold is the minimum size for an IndexedDB blob to surface as a
+// cleanup item. Browsers store large site data (cached media, offline assets)
+// as blob files under IndexedDB; only the big ones are worth reclaiming.
+const largeBlobThreshold = 50 << 20 // 50 MiB
+
+// edgeIndexedDBRoots returns one root per browser profile pointing at its
+// IndexedDB store, surfacing only blob files at or above largeBlobThreshold.
+// IndexedDB holds real site data rather than disposable cache, so the roots are
+// medium-risk and not selected by default.
+func edgeIndexedDBRoots(userData string) []Root {
+	if userData == "" {
+		return nil
+	}
+
+	entries, err := os.ReadDir(userData)
+	if err != nil {
+		return nil
+	}
+
+	roots := make([]Root, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name != "Default" && !strings.HasPrefix(name, "Profile ") {
+			continue
+		}
+		indexedDB := filepath.Join(userData, name, "IndexedDB")
+		if _, err := os.Stat(indexedDB); err != nil {
+			continue
+		}
+		roots = append(roots, Root{
+			Path:            indexedDB,
+			Category:        model.CategoryEdgeIndexedDB,
+			DefaultSelected: false,
+			Risk:            model.RiskMedium,
+			Filter:          isLargeBlob,
+		})
+	}
+	return roots
+}
+
+// isLargeBlob keeps only files at or above largeBlobThreshold, regardless of
+// name, since IndexedDB blob files are typically stored without an extension.
+func isLargeBlob(_ string, sizeBytes int64) bool {
+	return sizeBytes >= largeBlobThreshold
 }
 
 func normalizeExistingRoots(roots []Root) []Root {

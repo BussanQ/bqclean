@@ -28,6 +28,7 @@ const (
 	CategorySystemTemp    = model.CategorySystemTemp
 	CategoryChromeCache   = model.CategoryChromeCache
 	CategoryEdgeCache     = model.CategoryEdgeCache
+	CategoryEdgeIndexedDB = model.CategoryEdgeIndexedDB
 	CategoryVSCodeCache   = model.CategoryVSCodeCache
 	CategoryWindowsCache  = model.CategoryWindowsCache
 	CategoryDevCache      = model.CategoryDevCache

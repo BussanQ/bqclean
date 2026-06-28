@@ -10,6 +10,7 @@ import {
   Code2,
   Chrome,
   Clock3,
+  Database,
   Download,
   ExternalLink,
   FileText,
@@ -37,7 +38,7 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
-type CleanCategory = 'user_temp' | 'system_temp' | 'chrome_cache' | 'edge_cache' | 'vscode_cache' | 'windows_cache' | 'dev_cache' | 'windows_update' | 'windows_logs' | 'app_cache' | 'recycle_bin';
+type CleanCategory = 'user_temp' | 'system_temp' | 'chrome_cache' | 'edge_cache' | 'edge_indexeddb' | 'vscode_cache' | 'windows_cache' | 'dev_cache' | 'windows_update' | 'windows_logs' | 'app_cache' | 'recycle_bin';
 type RiskLevel = 'low' | 'medium';
 
 type ScanItem = {
@@ -161,6 +162,7 @@ const categoryMeta: Record<CleanCategory, CategoryMeta> = {
   system_temp: { label: '系统临时文件', shortLabel: 'System Temp', icon: Monitor },
   chrome_cache: { label: 'Chrome 缓存', shortLabel: 'Chrome Cache', icon: Chrome },
   edge_cache: { label: 'Edge 缓存', shortLabel: 'Edge Cache', icon: ShieldCheck },
+  edge_indexeddb: { label: 'Edge IndexedDB 大文件 (>50M)', shortLabel: 'Edge IndexedDB', icon: Database },
   vscode_cache: { label: 'VS Code 扩展缓存', shortLabel: 'VS Code Cache', icon: Code2 },
   windows_cache: { label: 'Windows 系统缓存', shortLabel: 'Win Cache', icon: HardDrive },
   dev_cache: { label: '开发者工具缓存', shortLabel: 'Dev Cache', icon: Package },
@@ -175,6 +177,7 @@ const categoryOrder: CleanCategory[] = [
   'system_temp',
   'chrome_cache',
   'edge_cache',
+  'edge_indexeddb',
   'vscode_cache',
   'windows_cache',
   'dev_cache',

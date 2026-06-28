@@ -16,6 +16,7 @@ const (
 	CategorySystemTemp    CleanCategory = "system_temp"
 	CategoryChromeCache   CleanCategory = "chrome_cache"
 	CategoryEdgeCache     CleanCategory = "edge_cache"
+	CategoryEdgeIndexedDB CleanCategory = "edge_indexeddb"
 	CategoryVSCodeCache   CleanCategory = "vscode_cache"
 	CategoryWindowsCache  CleanCategory = "windows_cache"
 	CategoryDevCache      CleanCategory = "dev_cache"

@@ -64,7 +64,7 @@ func TestScanAppliesRootFilter(t *testing.T) {
 		Path:     root,
 		Category: model.CategoryWindowsLogs,
 		Risk:     model.RiskMedium,
-		Filter:   func(name string) bool { return strings.Contains(name, ".etl.") },
+		Filter:   func(name string, _ int64) bool { return strings.Contains(name, ".etl.") },
 	}})
 
 	if cancelled {
@@ -101,7 +101,7 @@ func TestScanSkipsConfiguredSubdir(t *testing.T) {
 		Path:     root,
 		Category: model.CategoryWindowsLogs,
 		Risk:     model.RiskMedium,
-		Filter:   func(name string) bool { return strings.Contains(name, ".etl.") },
+		Filter:   func(name string, _ int64) bool { return strings.Contains(name, ".etl.") },
 		SkipDir:  func(name string) bool { return strings.EqualFold(name, "RtBackup") },
 	}})
 
