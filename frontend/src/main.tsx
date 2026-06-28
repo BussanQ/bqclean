@@ -15,8 +15,10 @@ import {
   ExternalLink,
   FileText,
   Filter,
+  FoldVertical,
   Folder,
   FolderTree,
+  UnfoldVertical,
   HardDrive,
   Home,
   Info,
@@ -495,6 +497,19 @@ function App() {
     });
   }
 
+  function expandAllCategories() {
+    setExpanded(new Set(categoryOrder.filter((category) => (grouped.get(category)?.length ?? 0) > 0)));
+  }
+
+  function collapseAllCategories() {
+    setExpanded(new Set());
+  }
+
+  const allCategoriesExpanded = useMemo(() => {
+    const nonEmpty = categoryOrder.filter((category) => (grouped.get(category)?.length ?? 0) > 0);
+    return nonEmpty.length > 0 && nonEmpty.every((category) => expanded.has(category));
+  }, [grouped, expanded]);
+
   function toggleGrowthPath(path: string) {
     setGrowthSelected((current) => {
       const next = new Set(current);
@@ -737,6 +752,15 @@ function App() {
             <span>Risk</span>
             <span className="sizeHead">Size</span>
             <div className="toolIcons">
+              <button
+                className="iconButton"
+                type="button"
+                onClick={allCategoriesExpanded ? collapseAllCategories : expandAllCategories}
+                disabled={!scanResult || scanResult.items.length === 0}
+                title={allCategoriesExpanded ? '收起全部目录' : '展开全部目录'}
+              >
+                {allCategoriesExpanded ? <FoldVertical size={18} /> : <UnfoldVertical size={18} />}
+              </button>
               <button className="iconButton" type="button" title="筛选">
                 <Filter size={17} />
               </button>
